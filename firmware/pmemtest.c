@@ -751,28 +751,43 @@ void wheel_decrement()
     }
 }
 
+// Quadrature transition table:
+// index = (prev << 2) | cur
+// values: +1 = step in one direction (quadrature), -1 = step in the other direction, 0 = no/irrelevant transition
+static const int8_t qtable[16] = {
+    0,  +1,  -1,  0,   // prev = 0 (00): cur = 00,01,10,11
+   -1,   0,   0, +1,   // prev = 1 (01)
+   +1,   0,   0, -1,   // prev = 2 (10)
+    0,  -1,  +1,  0    // prev = 3 (11)
+};
+
 void do_encoder()
 {
     static pin_debounce_t pin_a = {GPIO_QUAD_A, 0};
     static pin_debounce_t pin_b = {GPIO_QUAD_B, 0};
     static uint8_t wheel_state_old = 0;
-    uint8_t st;
+    static int8_t acc = 0; //quadrature transition accumulator 
     uint8_t wheel_state;
 
     wheel_state = do_debounce(&pin_a) | (do_debounce(&pin_b) << 1);
-    st = wheel_state | (wheel_state_old << 4);
+
     if (wheel_state != wheel_state_old) {
-        // Present state, next state
-        // 00 -> 01 clockwise
-        // 10 -> 11 counterclockwise
-        // 11 -> 10 clockwise
-        // 01 -> 00 counterclockwise
-        if ((st == 0x01) || (st == 0x32)) {
+        uint8_t idx = (wheel_state_old << 2) | wheel_state;
+        int8_t delta = qtable[idx];
+        acc += delta;
+
+	// Threshold = how many quadrature "quarters" must accumulate
+        // before reporting a single user step.
+        // For EC11 typically 2 or 4 — experiment.
+        const int8_t threshold = 4; 
+        if (acc >= threshold) {
             wheel_increment();
-        }
-        if ((st == 0x23) || (st == 0x10)) {
+            acc = 0;
+        } else if (acc <= -threshold) {
             wheel_decrement();
+            acc = 0;
         }
+
         wheel_state_old = wheel_state;
     }
 }
