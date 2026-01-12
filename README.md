@@ -1,3 +1,9 @@
+The only change compared to the Schlae version is a change in the firmware to use the EC11 encoder instead of Panasonic one.
+
+Original readme below:
+
+--------------------------------
+
 # Pico DRAM Tester
 
 Having trouble with your old-school DIP dynamic RAM chips? Here's a simple
